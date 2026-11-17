@@ -161,6 +161,8 @@ tools/android-runtime/*
 !tools/android-runtime/*.sh
 !tools/android-runtime/patches/
 !tools/android-runtime/patches/*.patch
+!tools/android-runtime/vendor/
+!tools/android-runtime/vendor/**
 tools/android-runtime/build/
 tools/android-runtime/downloads/
 tools/android-runtime/sources/

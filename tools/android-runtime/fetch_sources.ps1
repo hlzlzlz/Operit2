@@ -31,12 +31,18 @@ $items = @(
     },
     @{
         Name = "talloc-2.4.3"
+        # samba.org serves 503 for the whole host often enough that this archive
+        # is effectively unavailable. tools/android-runtime/vendor/talloc is the
+        # committed fallback and is what the build normally uses; this entry is
+        # only attempted so an upstream-fetched tree still wins when it is
+        # reachable. Optional: failing here does not stop the build.
         Urls = @(
             "https://www.samba.org/ftp/talloc/talloc-2.4.3.tar.gz"
         )
         Archive = "talloc-2.4.3.tar.gz"
         Sha256 = "DC46C40B9F46BB34DD97FE41F548B0E8B247B77A918576733C528E83ABD854DD"
         Extracted = "talloc-2.4.3"
+        Optional = $true
     },
     @{
         Name = "bash-5.2.37"
@@ -74,7 +80,15 @@ function Get-Archive([string]$name, [string[]]$urls, [string]$archivePath) {
 
 foreach ($item in $items) {
     $archivePath = Join-Path $downloadsDir $item.Archive
-    Get-Archive $item.Name $item.Urls $archivePath
+    try {
+        Get-Archive $item.Name $item.Urls $archivePath
+    } catch {
+        if ($item.Optional) {
+            Write-Warning "Skipping optional source $($item.Name): $($_.Exception.Message)"
+            continue
+        }
+        throw
+    }
 
     $actualSha256 = (Get-FileHash -Algorithm SHA256 -Path $archivePath).Hash.ToUpperInvariant()
     if ($actualSha256 -ne $item.Sha256) {
