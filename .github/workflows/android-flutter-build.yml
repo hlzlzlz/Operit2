@@ -112,9 +112,14 @@ jobs:
       # Corepack/pnpm for the built-in workflow package; deploy-web-experience.yml
       # provisions the same two, and without them the Android build fails in
       # "Build and package Android app".
+      #
+      # Gradle's :app:syncOperitPlugins resolves the interpreter at
+      # <repo>/.venv/Scripts/python.exe on Windows, so that virtualenv has to
+      # exist before Gradle starts; nothing else creates it.
       - name: Prepare build-hook toolchain
         shell: pwsh
         run: |
+          python -m venv .venv
           npm install --prefix .ci-tools/typescript --no-audit --no-fund typescript@5.9.3
           corepack enable pnpm
           corepack pnpm --version
