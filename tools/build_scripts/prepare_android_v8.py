@@ -27,6 +27,16 @@ import tomllib
 import urllib.request
 import zipfile
 
+# Windows Python still defaults stdio to the ANSI code page (cp1252 on GitHub
+# runners), so any non-ASCII byte in a printed command or a captured tool
+# message aborts the build with UnicodeDecodeError. Reconfigure the streams to
+# UTF-8 with replacement instead of raising.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 try:
     import fcntl
 except ImportError:  # Windows: Gradle serializes task execution instead.
@@ -85,7 +95,19 @@ def run(command, **kwargs):
 
 
 def output(command):
-    return run(command, capture_output=True, text=True).stdout.strip()
+    # Never let text=True pick the locale codec here: on Windows Python defaults
+    # to cp1252, and `cargo metadata` emits UTF-8 (paths and messages carry
+    # non-ASCII bytes), which crashed the Android build with
+    # "UnicodeDecodeError: 'charmap' codec can't decode byte 0x81". Decode as
+    # UTF-8 and never raise, so tool output cannot abort the build.
+    result = run(
+        command,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return (result.stdout or "").strip()
 
 
 def api_level():
@@ -343,8 +365,14 @@ def brew_prefix(formula):
         (str(p) for p in (Path("/opt/homebrew/bin/brew"), Path("/usr/local/bin/brew")) if p.is_file()), None)
     if not brew:
         return None
-    result = subprocess.run([brew, "--prefix", formula], capture_output=True, text=True)
-    return Path(result.stdout.strip()) if result.returncode == 0 else None
+    result = subprocess.run(
+        [brew, "--prefix", formula],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return Path((result.stdout or "").strip()) if result.returncode == 0 else None
 
 
 def find_host_clang():
