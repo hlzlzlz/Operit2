@@ -405,7 +405,12 @@ def find_libclang():
         if not directory or not (directory / "libclang.dll").is_file():
             raise RuntimeError("Set OPERIT_LIBCLANG_DIR to the directory containing libclang.dll (21.1+)")
         return directory
-    pattern = "libclang.so*"
+    # Two spellings are in use: `libclang.so*` (libclang.so, libclang.so.21) and
+    # `libclang-<major>.so` (Debian/Ubuntu ship libclang-21.so and
+    # libclang-21.1.8.so). A single `libclang.so*` glob silently misses the
+    # hyphen form, which is why discovery kept reporting "no libclang" on Ubuntu
+    # while libclang-21-dev was installed.
+    patterns = ("libclang.so*", "libclang-[0-9]*.so*")
     if sys.platform == "darwin":
         llvm = find_host_clang()
         candidates = [llvm / "lib"]
@@ -415,7 +420,8 @@ def find_libclang():
         candidates += [Path("/usr/lib/x86_64-linux-gnu"), Path("/usr/lib64"), Path("/usr/lib")]
     libraries = []
     for directory in candidates:
-        libraries += sorted(directory.glob(pattern))
+        for pattern in patterns:
+            libraries += sorted(directory.glob(pattern))
     # Distributions disagree on how the SONAME major is spelled. Debian and
     # Ubuntu ship libclang-21.so / libclang-21.1.8.so (hyphen), while other
     # packagings use libclang.so.21. Accept both spellings.
