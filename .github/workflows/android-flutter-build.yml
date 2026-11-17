@@ -94,19 +94,17 @@ jobs:
       # The source-built V8 needs libclang 21.1+ and ld.lld; Ubuntu 24.04 ships
       # LLVM 18, so pull the LLVM 21 toolchain from apt.llvm.org.
       #
-      # check_build_environment.py runs check_native_app_tools for the Linux
-      # host, which asserts the desktop Flutter prerequisites (gtk, gstreamer,
-      # webkit2gtk) even for an Android-only build, so install them too instead
-      # of skipping the environment check.
+      # The desktop GTK/GStreamer/WebKit development packages are deliberately
+      # NOT installed: an Android build links against none of them, and the
+      # probe cannot pass on Ubuntu anyway because gstreamer-1.0.pc declares
+      # `Requires: libunwind` while the distro only ships libunwind-18.pc. The
+      # environment check is invoked with --skip-desktop-linux-packages.
       - name: Install LLVM 21 and native build tools
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             ca-certificates curl gnupg lsb-release ninja-build pkg-config \
-            unzip zip xz-utils python3-venv libc++-dev libc++abi-dev \
-            cmake libgtk-3-dev libayatana-appindicator3-dev \
-            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-            libgstreamer-plugins-good1.0-dev libwebkit2gtk-4.1-dev
+            unzip zip xz-utils python3-venv libc++-dev libc++abi-dev cmake
           # llvm-src-release.asc does not exist on apt.llvm.org (404); the
           # published key is llvm-snapshot.gpg.key.
           curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key \
@@ -117,22 +115,6 @@ jobs:
           sudo apt-get install -y --no-install-recommends llvm-21-dev lld-21 libclang-21-dev
           llvm-config-21 --version
           ls /usr/lib/llvm-21/lib/libclang.so* | head -1
-
-          # Report what pkg-config actually sees, so a missing .pc file is
-          # diagnosable from the log instead of requiring another full run.
-          echo "--- pkg-config search path ---"
-          pkg-config --variable pc_path pkg-config || true
-          echo "--- gstreamer .pc files on disk ---"
-          ls -1 /usr/lib/x86_64-linux-gnu/pkgconfig/ | grep -i gstreamer || true
-          echo "--- pkg-config --exists probes ---"
-          for pkg in gstreamer-1.0 gstreamer-app-1.0 gstreamer-audio-1.0; do
-            if pkg-config --exists "$pkg"; then
-              echo "OK   $pkg ($(pkg-config --modversion "$pkg"))"
-            else
-              echo "FAIL $pkg"
-              pkg-config --print-errors --exists "$pkg" 2>&1 || true
-            fi
-          done
 
       - name: Install bootstrap Dart
         uses: dart-lang/setup-dart@v1
@@ -218,7 +200,7 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-android-v8-${{ hashFiles('tools/build_scripts/prepare_android_v8.py', 'apps/flutter/native/operit-flutter-bridge/Cargo.lock') }}
 
       - name: Check build environment
-        run: python3 tools/build_scripts/check_build_environment.py --products app --github-runner
+        run: python3 tools/build_scripts/check_build_environment.py --products app --github-runner --skip-desktop-linux-packages
 
       - name: Build and package Android app
         run: |
