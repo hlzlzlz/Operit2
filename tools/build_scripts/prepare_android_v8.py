@@ -416,10 +416,25 @@ def find_libclang():
     libraries = []
     for directory in candidates:
         libraries += sorted(directory.glob(pattern))
+    # Distributions disagree on how the SONAME major is spelled. Debian and
+    # Ubuntu ship libclang-21.so / libclang-21.1.8.so (hyphen), while other
+    # packagings use libclang.so.21. Accept both spellings.
+    versioned_major = re.compile(r"libclang(?:-|\.so\.)(\d+)")
     for library in libraries:
-        match = re.search(r"libclang\.so\.(\d+)", library.name)
+        match = versioned_major.search(library.name)
         if match and int(match.group(1)) >= 21:
             return library.parent
+    # A bare libclang.so is only trusted next to a qualifying versioned file;
+    # otherwise an old system libclang would silently satisfy the requirement.
+    # An older sibling (libclang-18.so) must not unlock it, so re-test the major.
+    has_qualifying_version = any(
+        (match := versioned_major.search(library.name)) and int(match.group(1)) >= 21
+        for library in libraries
+    )
+    if has_qualifying_version:
+        for library in libraries:
+            if library.name == "libclang.so":
+                return library.parent
     if sys.platform == "darwin" and libraries:
         return libraries[0].parent
     raise RuntimeError(
