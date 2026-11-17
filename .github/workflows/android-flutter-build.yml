@@ -76,6 +76,10 @@ jobs:
       RUSTFLAGS: -Awarnings
       RUST_TOOLCHAIN_VERSION: 1.95.0
       FVM_VERSION: 4.3.0
+      # Pin the LLVM 21 install explicitly instead of letting
+      # prepare_android_v8.py guess between /usr/lib/llvm*/lib candidates.
+      OPERIT_ANDROID_V8_LLVM: /usr/lib/llvm-21
+      OPERIT_LIBCLANG_DIR: /usr/lib/llvm-21/lib
 
     steps:
       - name: Checkout
@@ -102,7 +106,9 @@ jobs:
             unzip zip xz-utils python3-venv libc++-dev libc++abi-dev \
             cmake libgtk-3-dev libayatana-appindicator3-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libwebkit2gtk-4.1-dev
-          curl -fsSL https://apt.llvm.org/llvm-src-release.asc \
+          # llvm-src-release.asc does not exist on apt.llvm.org (404); the
+          # published key is llvm-snapshot.gpg.key.
+          curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key \
             | sudo gpg --dearmor -o /usr/share/keyrings/llvm.gpg
           echo "deb [signed-by=/usr/share/keyrings/llvm.gpg] http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main" \
             | sudo tee /etc/apt/sources.list.d/llvm-21.list
