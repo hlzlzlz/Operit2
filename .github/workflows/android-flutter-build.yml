@@ -76,10 +76,12 @@ jobs:
       RUSTFLAGS: -Awarnings
       RUST_TOOLCHAIN_VERSION: 1.95.0
       FVM_VERSION: 4.3.0
-      # Pin the LLVM 21 install explicitly instead of letting
-      # prepare_android_v8.py guess between /usr/lib/llvm*/lib candidates.
-      OPERIT_ANDROID_V8_LLVM: /usr/lib/llvm-21
-      OPERIT_LIBCLANG_DIR: /usr/lib/llvm-21/lib
+      # No LLVM override here on purpose. OPERIT_ANDROID_V8_LLVM must name a
+      # root containing bin/clang (llvm-21-dev ships no clang driver), and
+      # OPERIT_LIBCLANG_DIR is only read on Windows. Left unset,
+      # prepare_android_v8.py takes its documented hermetic default and
+      # downloads Chromium's own clang, while find_libclang discovers LLVM 21 in
+      # /usr/lib/llvm-21/lib on its own.
 
     steps:
       - name: Checkout
@@ -115,6 +117,10 @@ jobs:
           sudo apt-get install -y --no-install-recommends llvm-21-dev lld-21 libclang-21-dev
           llvm-config-21 --version
           ls /usr/lib/llvm-21/lib/libclang.so* | head -1
+          # find_lld also probes /usr/bin/ld.lld; keep that path available so
+          # the probe does not depend on the llvm-21 glob alone.
+          sudo ln -sf /usr/lib/llvm-21/bin/ld.lld /usr/bin/ld.lld
+          ld.lld --version
 
       - name: Install bootstrap Dart
         uses: dart-lang/setup-dart@v1
