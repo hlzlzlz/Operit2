@@ -12,6 +12,7 @@ from common import (
     RELEASE_DIR,
     flutter_command,
     flutter_pub_get,
+    generate_dart_proxy_artifacts,
     require_command,
     run,
 )
@@ -47,6 +48,12 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     flutter_pub_get(enforce_lockfile=args.enforce_lockfile)
+    # lib/core/proxy/generated/*.g.dart is gitignored and produced by the
+    # local proxy crate's build script. The Android build already runs this
+    # through generate_dart_proxy_artifacts(); without it the Windows build
+    # fails with "RuntimeDeviceSpaceDevice isn't a type", because the UI
+    # imports generated proxy types that were never produced.
+    generate_dart_proxy_artifacts()
     command = [flutter_command(), "build", "windows", "--release", "--no-pub"]
     if args.build_name:
         command.extend(["--build-name", args.build_name])

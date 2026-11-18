@@ -55,6 +55,25 @@ jobs:
           dart pub global activate fvm $env:FVM_VERSION
           "$env:APPDATA\Pub\Cache\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
 
+      # The Flutter build hook and the Gradle/MSBuild plugin-sync hook
+      # regenerate ToolPkg assets through plugins/tools/sync_plugin_packages.py.
+      # That script needs the repository-managed TypeScript compiler and
+      # Corepack/pnpm, and Gradle-style tooling resolves the interpreter at
+      # <repo>/.venv/Scripts/python.exe. deploy-web-experience.yml provisions
+      # the same set; the Windows workflow never did.
+      - name: Prepare build-hook toolchain
+        shell: pwsh
+        run: |
+          python -m venv .venv
+          npm install --prefix .ci-tools/typescript --no-audit --no-fund typescript@5.9.3
+          corepack enable pnpm
+          corepack pnpm --version
+
+      - name: Install built-in workflow plugin dependencies
+        working-directory: plugins/packages/buildin/workflow
+        shell: pwsh
+        run: corepack pnpm install --frozen-lockfile
+
       - name: Install project Flutter SDK
         working-directory: apps/flutter/app
         shell: pwsh
